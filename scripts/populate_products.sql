@@ -1,100 +1,17 @@
-#!/usr/bin/env python3
-"""
-Script per popolare product_ingredients per tutta la POC
-Esegue il parser su ogni prodotto presente in tabella products
-"""
+INSERT INTO products (ean, name, brand, ingredients_raw, ingredients_normalized, data_quality) VALUES
+('8000500310427', 'Biscotti Integrali Classici', 'Mulino Bianco', 'farina di frumento, zucchero, olio di palma, latte scremato in polvere, uova, lievito, sale', '["farina di frumento","zucchero","olio di palma","latte scremato in polvere","uova"]'::jsonb, 'manual'),
+('8001234567890', 'Biscotti al Cioccolato', 'Barilla', 'farina di frumento, zucchero, burro, cioccolato 20%, uova, latte intero in polvere', '["farina di frumento","zucchero","burro","cioccolato","uova","latte intero in polvere"]'::jsonb, 'manual'),
+('8012345678901', 'Crackers Salati', 'Ritz', 'farina di frumento, olio di palma, sale, lievito', '["farina di frumento","olio di palma","sale"]'::jsonb, 'manual'),
+('8009876543211', 'Biscotti al Burro', 'Oreo', 'farina di frumento, zucchero, burro, cacao, lattosio', '["farina di frumento","zucchero","burro","cacao","lattosio"]'::jsonb, 'manual'),
+('8004445556667', 'Snack di Mais', 'San Carlo', 'mais 95%, olio di girasole, sale', '["mais","olio di girasole","sale"]'::jsonb, 'manual'),
+('8007778889990', 'Patatine Classiche', 'San Carlo', 'patate, olio di palma, sale', '["patate","olio di palma","sale"]'::jsonb, 'manual'),
+('8002223334445', 'Snack di Riso', 'Pavesi', 'farina di riso, olio di palma, sale', '["farina di riso","olio di palma","sale"]'::jsonb, 'manual'),
+('8005556667778', 'Biscotti Senza Glutine', 'Schar', 'farina di riso, zucchero, olio di girasole, uova, sale', '["farina di riso","zucchero","olio di girasole","uova"]'::jsonb, 'manual'),
+('8008889990001', 'Crackers Senza Glutine', 'Schar', 'farina di mais, farina di riso, olio di oliva, sale', '["farina di mais","farina di riso","olio di oliva","sale"]'::jsonb, 'manual'),
+('8003334445556', 'Biscotti Vegani Senza Lattosio', 'Pleniday', 'farina di avena, zucchero di canna, olio di cocco, cacao', '["farina di avena","zucchero di canna","olio di cocco","cacao"]'::jsonb, 'manual'),
+('8006667778889', 'Snack di Mais Senza Glutine', 'Bio', 'mais, olio di girasole, sale', '["mais","olio di girasole","sale"]'::jsonb, 'manual'),
+('8009990001112', 'Biscotti al Cacao Senza Glutine', 'Schar', 'farina di riso, zucchero, olio di girasole, cacao 15%', '["farina di riso","zucchero","olio di girasole","cacao"]'::jsonb, 'manual'),
+('8001122334455', 'Crackers Senza Glutine e Senza Latte', 'Schar', 'farina di mais, olio di oliva, sale', '["farina di mais","olio di oliva","sale"]'::jsonb, 'manual'),
+('8005566778899', 'Biscotti Senza Glutine e Senza Uova', 'Pleniday', 'farina di riso, zucchero, olio di cocco, lievito', '["farina di riso","zucchero","olio di cocco","lievito"]'::jsonb, 'manual');
 
-import os
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from app.parser import parse_ingredients          # il parser che ti ho fornito prima
-from app.models import Dictionary                # se usi ORM, altrimenti usa query diretta
-
-# ====================== CONFIGURAZIONE ======================
-DATABASE_URL = "postgresql+psycopg2://user:password@localhost:5432/retail_poc"  # MODIFICA CON I TUOI DATI
-
-engine = create_engine(DATABASE_URL)
-Session = sessionmaker(bind=engine)
-
-# Carica il dizionario una sola volta
-def load_dictionary(session):
-    rows = session.execute(text("SELECT term, category, severity FROM dictionary")).fetchall()
-    dictionary = {}
-    for term, category, severity in rows:
-        if category not in dictionary:
-            dictionary[category] = {"terms": [], "severity": severity}
-        dictionary[category]["terms"].append(term.lower())
-    return dictionary
-
-# ====================== POPOLAZIONE ======================
-def populate_product_ingredients():
-    session = Session()
-    dictionary = load_dictionary(session)
-
-    # Recupera tutti i prodotti
-    products = session.execute(text("""
-        SELECT ean, ingredients_raw 
-        FROM products 
-        ORDER BY ean
-    """)).fetchall()
-
-    print(f"✅ Trovati {len(products)} prodotti da parsare...\n")
-
-    inserted = 0
-    for ean, raw_text in products:
-        if not raw_text:
-            continue
-
-        try:
-            # Esegui il parser
-            parse_result = parse_ingredients(raw_text, dictionary)
-
-            # Cancella eventuali record precedenti
-            session.execute(text(
-                "DELETE FROM product_ingredients WHERE product_ean = :ean"
-            ), {"ean": ean})
-
-            # Inserisci contains_matches
-            for m in parse_result.get("contains_matches", []):
-                session.execute(text("""
-                    INSERT INTO product_ingredients 
-                    (product_ean, token_original, ingredient_norm, category, severity, confidence, is_warning)
-                    VALUES (:ean, :token, :norm, :cat, :sev, :conf, FALSE)
-                """), {
-                    "ean": ean,
-                    "token": m["token"],
-                    "norm": m["token"],
-                    "cat": m["category"],
-                    "sev": m["severity"],
-                    "conf": m["confidence"]
-                })
-
-            # Inserisci warning_matches
-            for m in parse_result.get("warning_matches", []):
-                session.execute(text("""
-                    INSERT INTO product_ingredients 
-                    (product_ean, token_original, ingredient_norm, category, severity, confidence, is_warning)
-                    VALUES (:ean, :token, :norm, :cat, :sev, :conf, TRUE)
-                """), {
-                    "ean": ean,
-                    "token": m["token"],
-                    "norm": m["token"],
-                    "cat": m["category"],
-                    "sev": m["severity"],
-                    "conf": m["confidence"]
-                })
-
-            inserted += 1
-            print(f"✓ {ean} → {len(parse_result.get('contains_matches', [])) + len(parse_result.get('warning_matches', []))} ingredienti parsati")
-
-        except Exception as e:
-            print(f"✗ Errore su {ean}: {e}")
-
-    session.commit()
-    session.close()
-
-    print(f"\n🎉 POPOLAZIONE COMPLETATA! {inserted} prodotti parsati e salvati in product_ingredients.")
-
-
-if __name__ == "__main__":
-    populate_product_ingredients()
+SELECT COUNT(*) as total_products FROM products;
