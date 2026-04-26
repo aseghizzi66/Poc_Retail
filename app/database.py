@@ -2,6 +2,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import os
 
+# Importiamo Base dal file models
+from app.models import Base
+
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
