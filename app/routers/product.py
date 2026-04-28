@@ -1,11 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas import ParseRequest, ParseResponse
 from app.parser import parse_ingredients
 from app.services.product_lookup import ProductLookupService
+from app.models import Dictionary
 
 router = APIRouter(prefix="/product", tags=["Parser"])
+
+def load_dictionary(db: Session):
+    """Carica il dizionario dal database"""
+    rows = db.query(Dictionary).all()
+    dictionary = {}
+    for row in rows:
+        if row.category not in dictionary:
+            dictionary[row.category] = {"terms": [], "severity": row.severity}
+        dictionary[row.category]["terms"].append(row.term.lower())
+    return dictionary
 
 @router.post("/parse", response_model=ParseResponse)
 async def parse_product(request: ParseRequest, db: Session = Depends(get_db)):
@@ -19,7 +30,10 @@ async def parse_product(request: ParseRequest, db: Session = Depends(get_db)):
     if not raw_text:
         raise HTTPException(status_code=400, detail="Nessun testo ingredienti fornito")
 
-    parse_result = parse_ingredients(raw_text, {})  # dictionary caricato globalmente
+    # Carica il dizionario dal database
+    dictionary = load_dictionary(db)
+
+    parse_result = parse_ingredients(raw_text, dictionary)
 
     return ParseResponse(
         ean=request.ean,
