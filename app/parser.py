@@ -3,8 +3,7 @@ from typing import Dict, List
 
 WARNING_PATTERNS = [
     "può contenere", "puo contenere", "può contenere tracce di",
-    "tracce di", "may contain", "may contain traces of",
-    "prodotto in uno stabilimento che utilizza"
+    "tracce di", "may contain", "may contain traces of"
 ]
 
 def clean_text(text: str) -> str:
@@ -22,13 +21,15 @@ def tokenize(text: str) -> List[str]:
     return [p.strip() for p in parts if p.strip()]
 
 def normalize_token(token: str, dictionary: Dict) -> List[dict]:
-    """Matching migliorato"""
+    """Matching molto più aggressivo"""
     matches = []
     token_lower = token.lower()
 
     for category, data in dictionary.items():
         for term in data["terms"]:
-            if term in token_lower or token_lower in term:
+            term_lower = term.lower()
+            if term_lower in token_lower or token_lower in term_lower or term_lower.split()[0] in 
+token_lower:
                 confidence = 1.0 if data["severity"] == "certain" else 0.6
                 matches.append({
                     "token": token,
