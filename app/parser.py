@@ -1,5 +1,5 @@
 import re
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 WARNING_PATTERNS = [
     "può contenere", "puo contenere", "può contenere tracce di",
@@ -17,23 +17,18 @@ def clean_text(text: str) -> str:
     text = re.sub(r"\s+", " ", text)
     return text.strip()
 
-def split_warning_section(text: str) -> Tuple[str, str]:
-    for pattern in WARNING_PATTERNS:
-        idx = text.find(pattern)
-        if idx != -1:
-            return text[:idx].strip(), text[idx:].strip()
-    return text, ""
-
 def tokenize(text: str) -> List[str]:
     parts = re.split(r"\s*,\s*|\s*/\s*", text)
     return [p.strip() for p in parts if p.strip()]
 
 def normalize_token(token: str, dictionary: Dict) -> List[dict]:
+    """Matching migliorato"""
     matches = []
     token_lower = token.lower()
+
     for category, data in dictionary.items():
         for term in data["terms"]:
-            if term in token_lower:
+            if term in token_lower or token_lower in term:
                 confidence = 1.0 if data["severity"] == "certain" else 0.6
                 matches.append({
                     "token": token,
@@ -50,7 +45,18 @@ def parse_ingredients(raw_text: str, dictionary: Dict) -> Dict:
                 "unknown_tokens": ["ingredienti mancanti"], "ingredients_missing": True}
 
     cleaned = clean_text(raw_text)
-    contains_text, warning_text = split_warning_section(cleaned)
+    contains_text, warning_text = None, None
+
+    for pattern in WARNING_PATTERNS:
+        if pattern in cleaned:
+            idx = cleaned.find(pattern)
+            contains_text = cleaned[:idx].strip()
+            warning_text = cleaned[idx:].strip()
+            break
+
+    if contains_text is None:
+        contains_text = cleaned
+        warning_text = ""
 
     contains_tokens = tokenize(contains_text)
     warning_tokens = tokenize(warning_text)
