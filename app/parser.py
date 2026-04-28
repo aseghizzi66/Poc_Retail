@@ -21,16 +21,15 @@ def tokenize(text: str) -> List[str]:
     return [p.strip() for p in parts if p.strip()]
 
 def normalize_token(token: str, dictionary: Dict) -> List[dict]:
-    """Matching molto più aggressivo"""
+    """Matching molto aggressivo"""
     matches = []
-    token_lower = token.lower()
+    token_lower = " " + token.lower() + " "
 
     for category, data in dictionary.items():
         for term in data["terms"]:
-            term_lower = term.lower()
-            if term_lower in token_lower or token_lower in term_lower or term_lower.split()[0] in 
-token_lower:
-                confidence = 1.0 if data["severity"] == "certain" else 0.6
+            term_lower = " " + term.lower() + " "
+            if term_lower in token_lower or token_lower in term_lower:
+                confidence = 1.0 if data["severity"] == "certain" else 0.7
                 matches.append({
                     "token": token,
                     "category": category,
