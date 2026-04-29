@@ -30,7 +30,6 @@ async def parse_product(request: ParseRequest, db: Session = Depends(get_db)):
     if not raw_text:
         raise HTTPException(status_code=400, detail="Nessun testo ingredienti fornito")
 
-    # Carica il dizionario dal database
     dictionary = load_dictionary(db)
 
     parse_result = parse_ingredients(raw_text, dictionary)
