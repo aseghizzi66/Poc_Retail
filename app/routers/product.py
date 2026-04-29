@@ -8,16 +8,6 @@ from app.models import Dictionary
 
 router = APIRouter(prefix="/product", tags=["Parser"])
 
-def load_dictionary(db: Session):
-    """Carica il dizionario dal database"""
-    rows = db.query(Dictionary).all()
-    dictionary = {}
-    for row in rows:
-        if row.category not in dictionary:
-            dictionary[row.category] = {"terms": [], "severity": row.severity}
-        dictionary[row.category]["terms"].append(row.term.lower())
-    return dictionary
-
 @router.post("/parse", response_model=ParseResponse)
 async def parse_product(request: ParseRequest, db: Session = Depends(get_db)):
     if request.ean:
@@ -30,7 +20,13 @@ async def parse_product(request: ParseRequest, db: Session = Depends(get_db)):
     if not raw_text:
         raise HTTPException(status_code=400, detail="Nessun testo ingredienti fornito")
 
-    dictionary = load_dictionary(db)
+    # Carica il dizionario
+    rows = db.query(Dictionary).all()
+    dictionary = {}
+    for row in rows:
+        if row.category not in dictionary:
+            dictionary[row.category] = {"terms": [], "severity": row.severity}
+        dictionary[row.category]["terms"].append(row.term.lower())
 
     parse_result = parse_ingredients(raw_text, dictionary)
 
