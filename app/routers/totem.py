@@ -1,3 +1,23 @@
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI()
+
+# Configura le origini permesse
+origins = [
+    "http://localhost",
+    "http://localhost:5500", # Se usi Live Server di VS Code
+    "http://127.0.0.1:5500",
+    "*" # ATTENZIONE: "*" permette tutto, utile per test ma meno sicuro in produzione
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
