@@ -3,33 +3,33 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine, Base
-from app.routers import product, shelf
+from app.routers import product, shelf, totem   # ← Import corretto
 
 app = FastAPI(title="POC Retail Totem")
 
-# CORS deve essere applicato PRIMA di montare i file statici
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"]
 )
 
-# Monta i file statici
+# Monta static (opzionale, lo teniamo per sicurezza)
 app.mount("/static", StaticFiles(directory="static", html=True), name="static")
 
-# Router
+# Includi i router
 app.include_router(product.router)
 app.include_router(shelf.router)
-app.include_router(totem.router)
+app.include_router(totem.router)        # ← Ora funziona
 
 @app.get("/")
 async def root():
     return {
         "message": "✅ POC Retail Totem attiva",
-        "totem_url": "/static/totem.html"
+        "totem_url": "/totem/",
+        "docs": "/docs"
     }
 
 if __name__ == "__main__":
