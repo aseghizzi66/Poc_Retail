@@ -16,43 +16,44 @@ cat > static/totem.html << 'EOF'
       min-height: 100vh;
     }
     .container {
-      max-width: 1000px;
+      max-width: 1100px;
       margin: 40px auto;
       background: white;
       border-radius: 20px;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.12);
       overflow: hidden;
     }
     .header {
-      background: #2c3e50;
+      background: linear-gradient(90deg, #2c3e50, #3498db);
       color: white;
-      padding: 25px 40px;
+      padding: 30px 40px;
       text-align: center;
     }
     .header h1 {
       margin: 0;
-      font-size: 28px;
+      font-size: 32px;
       font-weight: 600;
     }
     .header p {
-      margin: 8px 0 0;
-      opacity: 0.9;
+      margin: 10px 0 0;
+      opacity: 0.95;
+      font-size: 18px;
     }
     .main {
       padding: 40px;
     }
     .filters {
-      margin-bottom: 40px;
+      margin-bottom: 30px;
     }
     .section-title {
-      font-size: 18px;
+      font-size: 19px;
       font-weight: 600;
       color: #2c3e50;
-      margin-bottom: 15px;
+      margin-bottom: 12px;
     }
     .filter-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 12px;
     }
     .filter-btn {
@@ -65,15 +66,31 @@ cat > static/totem.html << 'EOF'
       cursor: pointer;
       transition: all 0.2s;
       text-align: center;
+      position: relative;
     }
     .filter-btn:hover {
       border-color: #3498db;
-      transform: translateY(-2px);
+      transform: translateY(-3px);
     }
     .filter-btn.active {
       background: #3498db;
       color: white;
       border-color: #3498db;
+    }
+    .counter {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      background: #e74c3c;
+      color: white;
+      font-size: 13px;
+      font-weight: 600;
+      min-width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .shelf-select {
       margin-bottom: 30px;
@@ -96,31 +113,58 @@ cat > static/totem.html << 'EOF'
       border: none;
       border-radius: 12px;
       cursor: pointer;
-      margin-top: 10px;
+      margin: 10px 0;
     }
-    button:hover {
-      background: #219a52;
+    button:hover { background: #219a52; }
+
+    .reset-btn {
+      background: #95a5a6;
     }
+    .reset-btn:hover { background: #7f8c8d; }
+
+    .show-all-btn {
+      background: #3498db;
+    }
+    .show-all-btn:hover { background: #2980b9; }
+
     .results {
       margin-top: 40px;
     }
     .result-section {
-      margin-bottom: 30px;
-      padding: 20px;
-      border-radius: 12px;
+      margin-bottom: 35px;
+      padding: 25px;
+      border-radius: 16px;
     }
     .safe { background: #d5f4e6; }
     .warning { background: #fff3cd; }
     .unknown { background: #f8d7da; }
+
     .product {
+      display: flex;
+      align-items: center;
+      gap: 15px;
       padding: 12px 0;
-      border-bottom: 1px solid rgba(0,0,0,0.08);
-      font-size: 17px;
+      border-bottom: 1px solid rgba(0,0,0,0.07);
     }
     .product:last-child { border-bottom: none; }
-    .status-safe { color: #27ae60; font-weight: 600; }
-    .status-warning { color: #f39c12; font-weight: 600; }
-    .status-unknown { color: #e74c3c; font-weight: 600; }
+    .product img {
+      width: 65px;
+      height: 65px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 1px solid #eee;
+    }
+    .product-info {
+      flex: 1;
+    }
+    .product-name {
+      font-weight: 600;
+      font-size: 17px;
+    }
+    .product-brand {
+      color: #7f8c8d;
+      font-size: 15px;
+    }
   </style>
 </head>
 <body>
@@ -132,7 +176,10 @@ cat > static/totem.html << 'EOF'
 
     <div class="main">
       <div class="filters">
-        <div class="section-title">Cosa vuoi evitare?</div>
+        <div class="section-title">
+          Cosa vuoi evitare? 
+          <span id="counter" style="color:#e74c3c; font-weight:600;"></span>
+        </div>
         <div class="filter-grid" id="filters"></div>
       </div>
 
@@ -145,6 +192,8 @@ cat > static/totem.html << 'EOF'
       </div>
 
       <button onclick="checkShelf()">🔍 Cerca prodotti compatibili</button>
+      <button class="show-all-btn" onclick="showAllProducts()">📋 Mostra tutti i prodotti</button>
+      <button class="reset-btn" onclick="resetFilters()">🔄 Reset filtri</button>
 
       <div class="results" id="results"></div>
     </div>
@@ -163,6 +212,11 @@ cat > static/totem.html << 'EOF'
 
     let selected = [];
 
+    function updateCounter() {
+      const counter = document.getElementById('counter');
+      counter.textContent = selected.length > 0 ? `(${selected.length})` : '';
+    }
+
     function renderFilters() {
       const container = document.getElementById('filters');
       container.innerHTML = '';
@@ -177,16 +231,25 @@ cat > static/totem.html << 'EOF'
             selected.push(f.id);
           }
           renderFilters();
+          updateCounter();
         };
         container.appendChild(btn);
       });
+      updateCounter();
+    }
+
+    function resetFilters() {
+      selected = [];
+      renderFilters();
+      document.getElementById('results').innerHTML = '';
     }
 
     async function checkShelf() {
       const shelfId = document.getElementById('shelfSelect').value;
       const resultsDiv = document.getElementById('results');
       
-      resultsDiv.innerHTML = '<p style="text-align:center; color:#666;">Analisi in corso...</p>';
+      resultsDiv.innerHTML = '<p style="text-align:center; color:#666; padding:40px;">Analisi in 
+corso...</p>';
 
       try {
         const res = await fetch('https://pocretail-production.up.railway.app/shelf/check', {
@@ -200,43 +263,88 @@ cat > static/totem.html << 'EOF'
         });
 
         const data = await res.json();
-
-        let html = `<h2 style="text-align:center; color:#2c3e50;">Risultati per ${data.shelf_id}</h2>`;
-
-        if (data.safe_products.length > 0) {
-          html += `<div class="result-section safe"><h3>✅ Prodotti Sicuri 
-(${data.safe_products.length})</h3>`;
-          data.safe_products.forEach(p => {
-            html += `<div class="product"><strong>${p.brand}</strong> — ${p.name}</div>`;
-          });
-          html += `</div>`;
-        }
-
-        if (data.warning_products.length > 0) {
-          html += `<div class="result-section warning"><h3>⚠️ Da Verificare 
-(${data.warning_products.length})</h3>`;
-          data.warning_products.forEach(p => {
-            html += `<div class="product"><strong>${p.brand}</strong> — ${p.name} 
-<small>(${p.reasons.join(', ')})</small></div>`;
-          });
-          html += `</div>`;
-        }
-
-        if (data.unknown_products.length > 0) {
-          html += `<div class="result-section unknown"><h3>❓ Non verificabili 
-(${data.unknown_products.length})</h3>`;
-          data.unknown_products.forEach(p => {
-            html += `<div class="product">${p.name}</div>`;
-          });
-          html += `</div>`;
-        }
-
-        resultsDiv.innerHTML = html;
-
+        renderResults(data);
       } catch (e) {
         resultsDiv.innerHTML = `<p style="color:red; text-align:center;">Errore di connessione al 
 server</p>`;
       }
+    }
+
+    async function showAllProducts() {
+      const shelfId = document.getElementById('shelfSelect').value;
+      const resultsDiv = document.getElementById('results');
+      
+      resultsDiv.innerHTML = '<p style="text-align:center; color:#666; padding:40px;">Caricamento di 
+tutti i prodotti...</p>';
+
+      try {
+        const res = await fetch('https://pocretail-production.up.railway.app/shelf/check', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            shelf_id: shelfId,
+            filters: [],
+            strict_mode: false
+          })
+        });
+
+        const data = await res.json();
+        renderResults(data, true); // true = mostra tutti
+      } catch (e) {
+        resultsDiv.innerHTML = `<p style="color:red; text-align:center;">Errore di connessione al 
+server</p>`;
+      }
+    }
+
+    function renderResults(data, showAll = false) {
+      const resultsDiv = document.getElementById('results');
+      let html = `<h2 style="text-align:center; color:#2c3e50;">Risultati per ${data.shelf_id}</h2>`;
+
+      if (data.safe_products.length > 0) {
+        html += `<div class="result-section safe"><h3>✅ Prodotti Sicuri 
+(${data.safe_products.length})</h3>`;
+        data.safe_products.forEach(p => {
+          html += `
+            <div class="product">
+              <img src="https://picsum.photos/id/${Math.floor(Math.random()*200)+10}/65/65" 
+alt="${p.name}">
+              <div class="product-info">
+                <div class="product-brand">${p.brand}</div>
+                <div class="product-name">${p.name}</div>
+              </div>
+            </div>`;
+        });
+        html += `</div>`;
+      }
+
+      if (data.warning_products.length > 0) {
+        html += `<div class="result-section warning"><h3>⚠️ Da Verificare 
+(${data.warning_products.length})</h3>`;
+        data.warning_products.forEach(p => {
+          html += `
+            <div class="product">
+              <img src="https://picsum.photos/id/${Math.floor(Math.random()*200)+10}/65/65" 
+alt="${p.name}">
+              <div class="product-info">
+                <div class="product-brand">${p.brand}</div>
+                <div class="product-name">${p.name}</div>
+                <small>(${p.reasons.join(', ')})</small>
+              </div>
+            </div>`;
+        });
+        html += `</div>`;
+      }
+
+      if (data.unknown_products.length > 0 && !showAll) {
+        html += `<div class="result-section unknown"><h3>❓ Non verificabili 
+(${data.unknown_products.length})</h3>`;
+        data.unknown_products.forEach(p => {
+          html += `<div class="product"><strong>${p.name}</strong></div>`;
+        });
+        html += `</div>`;
+      }
+
+      resultsDiv.innerHTML = html;
     }
 
     // Inizializza
