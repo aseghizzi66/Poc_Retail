@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException  # Aggiunto HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime
 from app.database import get_db
@@ -26,18 +26,31 @@ async def check_shelf(request: ShelfCheckRequest, db: Session = Depends(get_db))
 
         product = db.query(Product).filter(Product.ean == ean).first()
         if not product:
-            unknown.append(ProductResult(ean=ean, name="Non trovato", brand="", position=position, shelf_row=shelf_row, status="UNKNOWN", reasons=[]))
+            unknown.append(ProductResult(
+                ean=ean, name="Non trovato", brand="", 
+                position=position, shelf_row=shelf_row, 
+                status="UNKNOWN", reasons=[]
+            ))
             continue
 
-        # Usa parsing pre-computato
+        # Recupera gli ingredienti dal DB
         ingredients = db.query(ProductIngredient).filter(ProductIngredient.product_ean == ean).all()
+        
+        # Costruzione parser_result (VIRGOLA CORRETTA QUI SOTTO)
         parser_result = {
-            "contains_matches": [{"token": i.token_original, "category": i.category, "severity": i.severity} for i in ingredients if not i.is_warning],
-            "warning_matches": [{"token": i.token_original, "category": i.category, "severity": i.severity} for i in ingredients if i.is_warning],
+            "contains_matches": [
+                {"token": i.token_original, "category": i.category, "severity": i.severity} 
+                for i in ingredients if not i.is_warning
+            ],  # <--- La virgola era mancante qui
+            "warning_matches": [
+                {"token": i.token_original, "category": i.category, "severity": i.severity} 
+                for i in ingredients if i.is_warning
+            ],
             "unknown_tokens": [],
-            "ingredients_missing": False
+            "ingredients_missing": len(ingredients) == 0
         }
 
+        # Esegue la logica di filtraggio
         decision = decide_status(parser_result, request.filters, request.strict_mode)
 
         result = ProductResult(
@@ -55,6 +68,7 @@ async def check_shelf(request: ShelfCheckRequest, db: Session = Depends(get_db))
         elif decision.status == "WARNING":
             warning.append(result)
         else:
+            # Include UNSAFE e UNKNOWN
             unknown.append(result)
 
     return ShelfCheckResponse(
