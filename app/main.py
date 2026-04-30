@@ -7,31 +7,31 @@ from app.routers import product, shelf
 
 app = FastAPI(title="POC Retail Totem")
 
-# Serve file statici
-app.mount("/static", StaticFiles(directory="static", html=True), name="static")
-
-# CORS più permissivo
+# CORS - Configurazione molto permissiva per POC
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],           # Permette tutti gli origin (per POC)
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"]
 )
 
-# Includi router
+# Monta i file statici DOPO il middleware CORS
+app.mount("/static", StaticFiles(directory="static", html=True), name="static")
+
+# Router
 app.include_router(product.router)
 app.include_router(shelf.router)
 
 @app.get("/")
 async def root():
     return {
-        "message": "✅ POC Retail Totem attiva",
-        "totem_url": "/static/totem.html",
+        "message": "✅ POC Retail Totem attiva sul cloud",
+        "totem": "/static/totem.html",
         "docs": "/docs"
     }
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=False)
