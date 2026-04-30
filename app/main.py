@@ -23,6 +23,7 @@ app.mount("/static", StaticFiles(directory="static", html=True), name="static")
 # Router
 app.include_router(product.router)
 app.include_router(shelf.router)
+app.include_router(totem.router)
 
 @app.get("/")
 async def root():
