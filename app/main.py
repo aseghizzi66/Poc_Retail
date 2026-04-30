@@ -17,7 +17,7 @@ app.add_middleware(
 )
 
 # Monta static (opzionale, lo teniamo per sicurezza)
-app.mount("/static", StaticFiles(directory="static", html=True), name="static")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Includi i router
 app.include_router(product.router)
