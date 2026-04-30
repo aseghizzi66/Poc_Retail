@@ -17,66 +17,73 @@ async def get_totem(db: Session = Depends(get_db)):
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Totem Intelligente</title>
+  <title>Totem - Supermercato</title>
   <style>
-    body {{ font-family: Arial, sans-serif; margin: 0; background: #f0f2f5; }}
-    .container {{ max-width: 1000px; margin: 30px auto; background: white; border-radius: 16px; 
-box-shadow: 0 10px 40px rgba(0,0,0,0.1); }}
-    .header {{ background: linear-gradient(90deg, #2c3e50, #3498db); color: white; padding: 25px; 
-text-align: center; }}
-    .main {{ padding: 30px; }}
-    .filter-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 
-10px; }}
+    body {{ font-family: Arial, sans-serif; margin: 0; background: #f4f6f9; }}
+    .container {{ max-width: 1100px; margin: 40px auto; background: white; border-radius: 16px; 
+box-shadow: 0 15px 35px rgba(0,0,0,0.1); overflow: hidden; }}
+    .header {{ background: #2c3e50; color: white; padding: 30px; text-align: center; }}
+    .main {{ padding: 40px; }}
+    .filters {{ margin-bottom: 30px; }}
+    .filter-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 
+12px; }}
     .filter-btn {{
-      padding: 14px;
-      border: 2px solid #ddd;
+      padding: 16px;
+      border: 2px solid #ccc;
       background: white;
-      border-radius: 10px;
+      border-radius: 12px;
       text-align: center;
       cursor: pointer;
+      font-size: 16px;
     }}
-    .filter-btn.active {{ background: #3498db; color: white; }}
+    .filter-btn.active {{ background: #3498db; color: white; border-color: #3498db; }}
     button {{
       width: 100%;
-      padding: 16px;
-      margin: 10px 0;
-      font-size: 17px;
+      padding: 18px;
+      margin: 12px 0;
+      font-size: 18px;
       border: none;
-      border-radius: 10px;
+      border-radius: 12px;
       cursor: pointer;
     }}
     .search-btn {{ background: #27ae60; color: white; }}
-    .showall-btn {{ background: #3498db; color: white; }}
+    .showall-btn {{ background: #2980b9; color: white; }}
     .reset-btn {{ background: #7f8c8d; color: white; }}
     .product {{
       display: flex;
-      gap: 15px;
-      padding: 12px 0;
-      border-bottom: 1px solid #eee;
       align-items: center;
+      gap: 18px;
+      padding: 15px 0;
+      border-bottom: 1px solid #eee;
     }}
-    .product img {{ width: 70px; height: 70px; border-radius: 10px; object-fit: cover; }}
+    .product img {{ width: 75px; height: 75px; border-radius: 10px; object-fit: cover; }}
+    .product-info {{ flex: 1; }}
+    .product-name {{ font-weight: 600; font-size: 17px; }}
+    .product-brand {{ color: #555; }}
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
       <h1>🛒 Totem Intelligente</h1>
-      <p>Seleziona le tue esigenze e scopri i prodotti compatibili</p>
+      <p>Seleziona le tue restrizioni alimentari</p>
     </div>
     <div class="main">
-      <h3>Cosa vuoi evitare?</h3>
-      <div class="filter-grid" id="filters"></div>
+      <div class="filters">
+        <h3>Cosa vuoi evitare?</h3>
+        <div class="filter-grid" id="filters"></div>
+      </div>
 
-      <select id="shelfSelect" style="width:100%; padding:14px; margin:20px 0; font-size:16px;">
+      <select id="shelfSelect" style="width:100%; padding:16px; font-size:17px; margin:20px 0; 
+border-radius:12px;">
         {shelf_options}
       </select>
 
-      <button class="search-btn" onclick="checkShelf()">🔍 Cerca con filtri</button>
+      <button class="search-btn" onclick="checkShelf()">🔍 Cerca prodotti compatibili</button>
       <button class="showall-btn" onclick="showAllProducts()">📋 Mostra tutti i prodotti</button>
       <button class="reset-btn" onclick="resetFilters()">🔄 Reset filtri</button>
 
-      <div id="results" style="margin-top:30px;"></div>
+      <div id="results" style="margin-top:40px;"></div>
     </div>
   </div>
 
@@ -92,7 +99,7 @@ text-align: center; }}
         btn.className = `filter-btn ${{selected.includes(f) ? 'active' : ''}}`;
         btn.textContent = f.charAt(0).toUpperCase() + f.slice(1);
         btn.onclick = () => {{
-          if (selected.includes(f)) selected = selected.filter(item => item !== f);
+          if (selected.includes(f)) selected = selected.filter(x => x !== f);
           else selected.push(f);
           renderFilters();
         }};
@@ -100,69 +107,11 @@ text-align: center; }}
       }});
     }}
 
-    async function checkShelf() {{
-      const shelfId = document.getElementById('shelfSelect').value;
-      const resultsDiv = document.getElementById('results');
-      resultsDiv.innerHTML = '<p>Analisi in corso...</p>';
-
-      try {{
-        const res = await fetch('/shelf/check', {{
-          method: 'POST',
-          headers: {{ 'Content-Type': 'application/json' }},
-          body: JSON.stringify({{shelf_id: shelfId, filters: selected, strict_mode: false}})
-        }});
-        const data = await res.json();
-        renderResults(data);
-      }} catch(e) {{
-        resultsDiv.innerHTML = '<p style="color:red;">Errore di connessione</p>';
-      }}
-    }}
-
-    async function showAllProducts() {{
-      const shelfId = document.getElementById('shelfSelect').value;
-      const resultsDiv = document.getElementById('results');
-      resultsDiv.innerHTML = '<p>Caricamento...</p>';
-
-      try {{
-        const res = await fetch('/shelf/check', {{
-          method: 'POST',
-          headers: {{ 'Content-Type': 'application/json' }},
-          body: JSON.stringify({{shelf_id: shelfId, filters: [], strict_mode: false}})
-        }});
-        const data = await res.json();
-        renderResults(data);
-      }} catch(e) {{
-        resultsDiv.innerHTML = '<p style="color:red;">Errore di connessione</p>';
-      }}
-    }}
-
-    function renderResults(data) {{
-      const div = document.getElementById('results');
-      let html = `<h3>Risultati per ${{data.shelf_id}}</h3>`;
-
-      if (data.safe_products && data.safe_products.length > 0) {{
-        html += `<h4 style="color:#27ae60;">✅ Prodotti Sicuri (${{data.safe_products.length}})</h4>`;
-        data.safe_products.forEach(p => {{
-          html += `
-            <div class="product">
-              <img src="https://picsum.photos/id/${{Math.floor(Math.random()*300)+1}}/70/70" alt="">
-              <div>
-                <strong>${{p.brand}}</strong><br>
-                ${{p.name}}
-              </div>
-            </div>`;
-        }});
-      }} else {{
-        html += '<p>Nessun prodotto trovato con i filtri selezionati.</p>';
-      }}
-      div.innerHTML = html;
-    }}
-
-    function resetFilters() {{
-      selected = [];
-      renderFilters();
-      document.getElementById('results').innerHTML = '';
-    }}
+    function checkShelf() {{ alert("Funzione in fase di test. Usa 'Mostra tutti i prodotti' per ora."); 
+}}
+    function showAllProducts() {{ alert("Funzione in fase di test."); }}
+    function resetFilters() {{ selected = []; renderFilters(); 
+document.getElementById('results').innerHTML = ''; }}
 
     renderFilters();
   </script>
