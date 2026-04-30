@@ -1,19 +1,17 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
+import os
+
 from app.database import engine, Base
 from app.routers import product, shelf
 
-# Crea le tabelle automaticamente (solo per POC)
-Base.metadata.create_all(bind=engine)
+app = FastAPI(title="POC Retail Totem")
 
-app = FastAPI(
-    title="Retail POC - Totem Shelf Check",
-    description="Parser ingredienti + Decision Engine + Shelf Check per totem in negozio",
-    version="1.0.0"
-)
+# Monta la cartella static
+app.mount("/static", StaticFiles(directory="static", html=True), name="static")
 
-# CORS per test e frontend kiosk
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -22,21 +20,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Registrazione router
+# Includi i router
 app.include_router(product.router)
 app.include_router(shelf.router)
 
 @app.get("/")
 async def root():
     return {
-        "message": "✅ POC Retail Totem attiva e funzionante!",
-        "endpoints": {
-            "Parser": "/product/parse",
-            "Shelf Check (Totem)": "/shelf/check",
-            "Docs": "/docs"
-        }
+        "message": "✅ POC Retail Totem attiva!",
+        "totem_interface": "/static/totem.html",
+        "docs": "/docs"
     }
 
+# Crea tabelle solo in ambiente locale (opzionale)
+if os.getenv("ENV") != "production":
+    Base.metadata.create_all(bind=engine)
 
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
