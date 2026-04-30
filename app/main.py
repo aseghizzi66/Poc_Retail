@@ -1,40 +1,36 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-import os
 
 from app.database import engine, Base
 from app.routers import product, shelf
 
 app = FastAPI(title="POC Retail Totem")
 
-# Monta la cartella static
+# Serve file statici
 app.mount("/static", StaticFiles(directory="static", html=True), name="static")
 
-# CORS
+# CORS più permissivo
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],           # Permette tutti gli origin (per POC)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
-# Includi i router
+# Includi router
 app.include_router(product.router)
 app.include_router(shelf.router)
 
 @app.get("/")
 async def root():
     return {
-        "message": "✅ POC Retail Totem attiva!",
-        "totem_interface": "/static/totem.html",
+        "message": "✅ POC Retail Totem attiva",
+        "totem_url": "/static/totem.html",
         "docs": "/docs"
     }
-
-# Crea tabelle solo in ambiente locale (opzionale)
-if os.getenv("ENV") != "production":
-    Base.metadata.create_all(bind=engine)
 
 if __name__ == "__main__":
     import uvicorn
