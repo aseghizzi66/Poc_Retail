@@ -1,0 +1,247 @@
+cat > static/totem.html << 'EOF'
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Totem Intelligente • Scegli i tuoi prodotti</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+    
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 40px auto;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    .header {
+      background: #2c3e50;
+      color: white;
+      padding: 25px 40px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 600;
+    }
+    .header p {
+      margin: 8px 0 0;
+      opacity: 0.9;
+    }
+    .main {
+      padding: 40px;
+    }
+    .filters {
+      margin-bottom: 40px;
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #2c3e50;
+      margin-bottom: 15px;
+    }
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+    .filter-btn {
+      padding: 16px 20px;
+      border: 2px solid #e2e8f0;
+      background: white;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .filter-btn:hover {
+      border-color: #3498db;
+      transform: translateY(-2px);
+    }
+    .filter-btn.active {
+      background: #3498db;
+      color: white;
+      border-color: #3498db;
+    }
+    .shelf-select {
+      margin-bottom: 30px;
+    }
+    select {
+      width: 100%;
+      padding: 16px;
+      font-size: 17px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      background: white;
+    }
+    button {
+      width: 100%;
+      padding: 18px;
+      font-size: 19px;
+      font-weight: 600;
+      background: #27ae60;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover {
+      background: #219a52;
+    }
+    .results {
+      margin-top: 40px;
+    }
+    .result-section {
+      margin-bottom: 30px;
+      padding: 20px;
+      border-radius: 12px;
+    }
+    .safe { background: #d5f4e6; }
+    .warning { background: #fff3cd; }
+    .unknown { background: #f8d7da; }
+    .product {
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+      font-size: 17px;
+    }
+    .product:last-child { border-bottom: none; }
+    .status-safe { color: #27ae60; font-weight: 600; }
+    .status-warning { color: #f39c12; font-weight: 600; }
+    .status-unknown { color: #e74c3c; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🛒 Totem Intelligente</h1>
+      <p>Seleziona le tue esigenze e scopri i prodotti compatibili nello scaffale</p>
+    </div>
+
+    <div class="main">
+      <div class="filters">
+        <div class="section-title">Cosa vuoi evitare?</div>
+        <div class="filter-grid" id="filters"></div>
+      </div>
+
+      <div class="shelf-select">
+        <div class="section-title">Scegli lo scaffale</div>
+        <select id="shelfSelect">
+          <option value="store_001-A12-R2">Biscotti e Snack - Ripiano 2</option>
+          <option value="store_001-A12-R1">Prodotti Free-From - Ripiano 1</option>
+        </select>
+      </div>
+
+      <button onclick="checkShelf()">🔍 Cerca prodotti compatibili</button>
+
+      <div class="results" id="results"></div>
+    </div>
+  </div>
+
+  <script>
+    const filtersList = [
+      {id: "latte", label: "Latte / Lattosio"},
+      {id: "glutine", label: "Glutine"},
+      {id: "soia", label: "Soia"},
+      {id: "uova", label: "Uova"},
+      {id: "arachidi", label: "Arachidi"},
+      {id: "frutta_guscio", label: "Frutta a guscio"},
+      {id: "olio_palma", label: "Olio di Palma"}
+    ];
+
+    let selected = [];
+
+    function renderFilters() {
+      const container = document.getElementById('filters');
+      container.innerHTML = '';
+      filtersList.forEach(f => {
+        const btn = document.createElement('div');
+        btn.className = `filter-btn ${selected.includes(f.id) ? 'active' : ''}`;
+        btn.textContent = f.label;
+        btn.onclick = () => {
+          if (selected.includes(f.id)) {
+            selected = selected.filter(id => id !== f.id);
+          } else {
+            selected.push(f.id);
+          }
+          renderFilters();
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    async function checkShelf() {
+      const shelfId = document.getElementById('shelfSelect').value;
+      const resultsDiv = document.getElementById('results');
+      
+      resultsDiv.innerHTML = '<p style="text-align:center; color:#666;">Analisi in corso...</p>';
+
+      try {
+        const res = await fetch('https://pocretail-production.up.railway.app/shelf/check', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            shelf_id: shelfId,
+            filters: selected,
+            strict_mode: false
+          })
+        });
+
+        const data = await res.json();
+
+        let html = `<h2 style="text-align:center; color:#2c3e50;">Risultati per ${data.shelf_id}</h2>`;
+
+        if (data.safe_products.length > 0) {
+          html += `<div class="result-section safe"><h3>✅ Prodotti Sicuri 
+(${data.safe_products.length})</h3>`;
+          data.safe_products.forEach(p => {
+            html += `<div class="product"><strong>${p.brand}</strong> — ${p.name}</div>`;
+          });
+          html += `</div>`;
+        }
+
+        if (data.warning_products.length > 0) {
+          html += `<div class="result-section warning"><h3>⚠️ Da Verificare 
+(${data.warning_products.length})</h3>`;
+          data.warning_products.forEach(p => {
+            html += `<div class="product"><strong>${p.brand}</strong> — ${p.name} 
+<small>(${p.reasons.join(', ')})</small></div>`;
+          });
+          html += `</div>`;
+        }
+
+        if (data.unknown_products.length > 0) {
+          html += `<div class="result-section unknown"><h3>❓ Non verificabili 
+(${data.unknown_products.length})</h3>`;
+          data.unknown_products.forEach(p => {
+            html += `<div class="product">${p.name}</div>`;
+          });
+          html += `</div>`;
+        }
+
+        resultsDiv.innerHTML = html;
+
+      } catch (e) {
+        resultsDiv.innerHTML = `<p style="color:red; text-align:center;">Errore di connessione al 
+server</p>`;
+      }
+    }
+
+    // Inizializza
+    renderFilters();
+  </script>
+</body>
+</html>
+EOF
