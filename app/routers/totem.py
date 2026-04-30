@@ -1,20 +1,16 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.services.product_lookup import ProductLookupService
 from app.models import ShelfMap
-from fastapi import Depends
 
 router = APIRouter(prefix="/totem", tags=["Totem"])
 
 @router.get("/", response_class=HTMLResponse)
 async def get_totem(db: Session = Depends(get_db)):
-    # Recupera gli scaffali disponibili
+    # Recupera gli scaffali
     shelves = db.query(ShelfMap).all()
-    shelf_options = ""
-    for s in shelves:
-        shelf_options += f'<option value="{s.shelf_id}">{s.name}</option>'
+    shelf_options = "".join([f'<option value="{s.shelf_id}">{s.name}</option>' for s in shelves])
 
     html = f"""<!DOCTYPE html>
 <html lang="it">
@@ -25,12 +21,12 @@ async def get_totem(db: Session = Depends(get_db)):
   <style>
     body {{ font-family: Arial, sans-serif; margin: 0; background: #f0f2f5; }}
     .container {{ max-width: 1000px; margin: 30px auto; background: white; border-radius: 16px; 
-box-shadow: 0 10px 40px rgba(0,0,0,0.1); overflow: hidden; }}
+box-shadow: 0 10px 40px rgba(0,0,0,0.1); }}
     .header {{ background: linear-gradient(90deg, #2c3e50, #3498db); color: white; padding: 25px; 
 text-align: center; }}
     .main {{ padding: 30px; }}
     .filter-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 
-10px; margin: 15px 0; }}
+10px; }}
     .filter-btn {{
       padding: 14px;
       border: 2px solid #ddd;
@@ -157,7 +153,7 @@ text-align: center; }}
             </div>`;
         }});
       }} else {{
-        html += '<p>Nessun prodotto trovato.</p>';
+        html += '<p>Nessun prodotto trovato con i filtri selezionati.</p>';
       }}
       div.innerHTML = html;
     }}
