@@ -87,23 +87,33 @@ text-align: center; }
       });
     }
 
-    async function checkShelf() {
-      const shelfId = document.getElementById('shelfSelect').value;
-      const resultsDiv = document.getElementById('results');
-      resultsDiv.innerHTML = '<p>Caricamento...</p>';
+// Estratto del JavaScript dentro TOTEM_HTML
+async function checkShelf() {
+  const shelfId = document.getElementById('shelfSelect').value;
+  const resultsDiv = document.getElementById('results');
+  resultsDiv.innerHTML = '<p>🔍 Filtro prodotti in corso...</p>';
 
-      try {
-        const res = await fetch('/shelf/check', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({shelf_id: shelfId, filters: selected, strict_mode: false})
-        });
-        const data = await res.json();
-        renderResults(data);
-      } catch(e) {
-        resultsDiv.innerHTML = '<p style="color:red;">Errore di connessione</p>';
-      }
-    }
+  try {
+    // Usiamo l'URL relativo: questo evita il CORB se la pagina è caricata da /totem/[cite: 2, 3]
+    const res = await fetch('/shelf/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        shelf_id: shelfId,
+        filters: selected, // Invia l'array di filtri selezionati[cite: 2]
+        strict_mode: false
+      })
+    });
+
+    if (!res.ok) throw new Error("Errore del server");
+
+    const data = await res.json();
+    renderResults(data); // Mostra solo i prodotti sicuri[cite: 2]
+  } catch(e) {
+    resultsDiv.innerHTML = '<p style="color:red;">❌ Errore durante il filtraggio</p>';
+    console.error(e);
+  }
+}
 
     async function showAllProducts() {
       const shelfId = document.getElementById('shelfSelect').value;
