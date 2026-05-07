@@ -7,37 +7,39 @@ def decide_status(
     strict_mode: bool = False
 ) -> DecisionResponse:
     
-    # 1. Normalizziamo la blacklist dell'utente in minuscolo per il confronto
-    user_blacklist = [b.lower() for b in user_blacklist]
+    if not user_blacklist:
+        return DecisionResponse(
+            status="SAFE",
+            reasons=[],
+            details=[],
+            message="Nessun filtro applicato - tutti i prodotti sono sicuri"
+        )
+
+    user_blacklist = [b.lower().strip() for b in user_blacklist]
 
     contains = parser_result.get("contains_matches", [])
     warnings = parser_result.get("warning_matches", [])
-    unknown_tokens = parser_result.get("unknown_tokens", [])
-    ingredients_missing = parser_result.get("ingredients_missing", False)
-
-    # 2. Estraiamo le categorie normalizzandole in minuscolo
-    # Usiamo un dizionario per mantenere il riferimento tra categoria minuscola e oggetto originale
-    contains_map = {m["category"].lower(): m for m in contains}
-    warning_map = {m["category"].lower(): m for m in warnings}
-    
-    contains_categories = set(contains_map.keys())
-    warning_categories = set(warning_map.keys())
 
     matched_reasons = []
     details = []
 
-    # 3. Controllo ingredienti presenti (CONTAINS)
-    matches = contains_categories & set(user_blacklist)
-    if matches:
-        for cat in matches:
-            orig_match = contains_map[cat]
-            matched_reasons.append(cat)
-            details.append({
-                "token": orig_match.get("token"), 
-                "category": cat, 
-                "type": "contains"
-            })
-            
+    def check_match(item):
+        category = str(item.get("category", "")).lower()
+        token = str(item.get("token", "")).lower()
+        
+        for forbidden in user_blacklist:
+            if forbidden in category or forbidden in token or category in forbidden or token in forbidden:
+                return forbidden
+        return None
+
+    # Controllo ingredienti presenti (contains)
+    for m in contains:
+        found = check_match(m)
+        if found:
+            matched_reasons.append(found)
+            details.append({"token": m.get("token"), "category": m.get("category"), "type": "contains"})
+
+    if matched_reasons:
         return DecisionResponse(
             status="UNSAFE",
             reasons=list(set(matched_reasons)),
@@ -45,18 +47,14 @@ def decide_status(
             message=f"Contiene {', '.join(set(matched_reasons))}"
         )
 
-    # 4. Controllo tracce (WARNINGS)
-    warning_matches = warning_categories & set(user_blacklist)
-    if warning_matches:
-        for cat in warning_matches:
-            orig_match = warning_map[cat]
-            matched_reasons.append(cat)
-            details.append({
-                "token": orig_match.get("token"), 
-                "category": cat, 
-                "type": "warning"
-            })
-            
+    # Controllo tracce (warning)
+    for w in warnings:
+        found = check_match(w)
+        if found:
+            matched_reasons.append(found)
+            details.append({"token": w.get("token"), "category": w.get("category"), "type": "warning"})
+
+    if matched_reasons:
         status = "UNSAFE" if strict_mode else "WARNING"
         return DecisionResponse(
             status=status,
@@ -65,16 +63,6 @@ def decide_status(
             message=f"Può contenere tracce di {', '.join(set(matched_reasons))}"
         )
 
-    # 5. Gestione dati mancanti
-    if ingredients_missing or unknown_tokens:
-        return DecisionResponse(
-            status="UNKNOWN",
-            reasons=[],
-            details=[{"token": t} for t in unknown_tokens[:5]],
-            message="Dati ingredienti incompleti"
-        )
-
-    # 6. Risultato sicuro
     return DecisionResponse(
         status="SAFE",
         reasons=[],
