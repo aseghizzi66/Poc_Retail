@@ -15,16 +15,21 @@ async def check_shelf(request: ShelfCheckRequest, db: Session = Depends(get_db))
     if not shelf:
         raise HTTPException(status_code=404, detail=f"Scaffale {request.shelf_id} non trovato")
 
-    # Recupero robusto dei prodotti dallo scaffale
-    products_data = shelf.products or []
+    # Recupero robusto del campo jsonb 'products'
+    products_data = shelf.products
     if isinstance(products_data, dict):
-        products_data = products_data.get("products", [])
+        products_data = products_data.get("products", []) if "products" in products_data else list(products_data.values())
+    if not isinstance(products_data, list):
+        products_data = []
+
+    print(f"DEBUG: Scaffale {request.shelf_id} → {len(products_data)} prodotti trovati")
 
     safe = []
     warning = []
     unknown = []
 
     for item in products_data:
+        # Supporto sia per dict che per stringa semplice
         ean = item.get("ean") if isinstance(item, dict) else str(item)
         if not ean:
             continue
@@ -45,8 +50,7 @@ async def check_shelf(request: ShelfCheckRequest, db: Session = Depends(get_db))
             "ingredients_missing": len(ingredients) == 0
         }
 
-        # Decisione
-        decision = decide_status(parser_result, request.filters or [], request.strict_mode or False)
+        decision = decide_status(parser_result, request.filters or [], getattr(request, 'strict_mode', False))
 
         res_item = ProductResult(
             ean=ean,
@@ -55,7 +59,7 @@ async def check_shelf(request: ShelfCheckRequest, db: Session = Depends(get_db))
             position=item.get("position") if isinstance(item, dict) else None,
             shelf_row=item.get("shelf_row") if isinstance(item, dict) else None,
             status=decision.status,
-            reasons=decision.reasons
+            reasons=decision.reasons or []
         )
 
         if decision.status == "SAFE":
