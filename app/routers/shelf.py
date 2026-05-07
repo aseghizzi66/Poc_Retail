@@ -15,21 +15,21 @@ async def check_shelf(request: ShelfCheckRequest, db: Session = Depends(get_db))
     if not shelf:
         raise HTTPException(status_code=404, detail=f"Scaffale {request.shelf_id} non trovato")
 
-    # Recupero robusto del campo jsonb 'products'
+    # Recupero corretto del JSONB
     products_data = shelf.products
     if isinstance(products_data, dict):
-        products_data = products_data.get("products", []) if "products" in products_data else list(products_data.values())
+        products_data = products_data.get("products", products_data)  # fallback
+    
     if not isinstance(products_data, list):
         products_data = []
 
-    print(f"DEBUG: Scaffale {request.shelf_id} → {len(products_data)} prodotti trovati")
+    print(f"DEBUG: Trovati {len(products_data)} prodotti nello scaffale {request.shelf_id}")
 
     safe = []
     warning = []
     unknown = []
 
     for item in products_data:
-        # Supporto sia per dict che per stringa semplice
         ean = item.get("ean") if isinstance(item, dict) else str(item)
         if not ean:
             continue
@@ -39,11 +39,15 @@ async def check_shelf(request: ShelfCheckRequest, db: Session = Depends(get_db))
 
         parser_result = {
             "contains_matches": [
-                {"token": i.token_original or "", "category": i.category or "", "severity": i.severity or "certain"} 
+                {"token": getattr(i, 'token_original', ''), 
+                 "category": getattr(i, 'category', ''), 
+                 "severity": getattr(i, 'severity', 'certain')} 
                 for i in ingredients if not getattr(i, 'is_warning', False)
             ],
             "warning_matches": [
-                {"token": i.token_original or "", "category": i.category or "", "severity": i.severity or "certain"} 
+                {"token": getattr(i, 'token_original', ''), 
+                 "category": getattr(i, 'category', ''), 
+                 "severity": getattr(i, 'severity', 'certain')} 
                 for i in ingredients if getattr(i, 'is_warning', False)
             ],
             "unknown_tokens": [],
