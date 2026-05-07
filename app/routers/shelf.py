@@ -8,17 +8,19 @@ from app.decision_engine import decide_status
 
 router = APIRouter(prefix="/shelf", tags=["Totem"])
 
-# Aggiungiamo lo slash finale opzionale per evitare il redirect 307
 @router.post("/check", response_model=ShelfCheckResponse)
 @router.post("/check/", response_model=ShelfCheckResponse)
 async def check_shelf(request: ShelfCheckRequest, db: Session = Depends(get_db)):
+    # 1. Recupero lo scaffale
     shelf = db.query(ShelfMap).filter(ShelfMap.shelf_id == request.shelf_id).first()
     
     if not shelf:
+        print(f"DEBUG: Scaffale {request.shelf_id} non trovato")
         raise HTTPException(status_code=404, detail="Shelf non trovato")
 
-    # Assicuriamoci che products sia una lista
+    # 2. Controllo se ci sono prodotti nello scaffale
     ean_list = shelf.products if isinstance(shelf.products, list) else []
+    print(f"DEBUG: Lo scaffale {request.shelf_id} contiene {len(ean_list)} EAN")
     
     safe = []
     warning = []
@@ -28,10 +30,14 @@ async def check_shelf(request: ShelfCheckRequest, db: Session = Depends(get_db))
         ean = item.get("ean")
         if not ean: continue
         
+        # 3. Cerco il prodotto nel catalogo
         product = db.query(Product).filter(Product.ean == ean).first()
-        ingredients = db.query(ProductIngredient).filter(ProductIngredient.product_ean == ean).all()
         
-        # Struttura pulita per evitare SyntaxWarning
+        # 4. Cerco gli ingredienti/allergeni nel database
+        ingredients = db.query(ProductIngredient).filter(ProductIngredient.product_ean == ean).all()
+        print(f"DEBUG: EAN {ean} - Ingredienti trovati nel DB: {len(ingredients)}")
+        
+        # Costruzione del parser_result per il decision_engine
         parser_result = {
             "contains_matches": [
                 {"token": i.token_original, "category": i.category, "severity": i.severity} 
@@ -45,7 +51,9 @@ async def check_shelf(request: ShelfCheckRequest, db: Session = Depends(get_db))
             "ingredients_missing": (len(ingredients) == 0)
         }
 
+        # 5. Eseguo la logica di filtraggio con i filtri dell'utente
         decision = decide_status(parser_result, request.filters, request.strict_mode)
+        print(f"DEBUG: EAN {ean} - Status deciso: {decision.status} (Filtri attivi: {request.filters})")
 
         res_item = ProductResult(
             ean=ean,
@@ -57,12 +65,15 @@ async def check_shelf(request: ShelfCheckRequest, db: Session = Depends(get_db))
             reasons=decision.reasons
         )
 
+        # 6. Distribuzione nelle liste di risposta
         if decision.status == "SAFE":
             safe.append(res_item)
         elif decision.status == "WARNING":
             warning.append(res_item)
         else:
             unknown.append(res_item)
+
+    print(f"DEBUG FINALE: Safe: {len(safe)}, Warning: {len(warning)}, Unknown/Unsafe: {len(unknown)}")
 
     return ShelfCheckResponse(
         shelf_id=request.shelf_id,
