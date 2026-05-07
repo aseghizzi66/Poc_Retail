@@ -11,61 +11,57 @@ router = APIRouter(prefix="/shelf", tags=["Totem"])
 @router.post("/check", response_model=ShelfCheckResponse)
 @router.post("/check/", response_model=ShelfCheckResponse)
 async def check_shelf(request: ShelfCheckRequest, db: Session = Depends(get_db)):
-    # 1. Recupero lo scaffale
     shelf = db.query(ShelfMap).filter(ShelfMap.shelf_id == request.shelf_id).first()
     
     if not shelf:
-        print(f"DEBUG: Scaffale {request.shelf_id} non trovato")
-        raise HTTPException(status_code=404, detail="Shelf non trovato")
+        raise HTTPException(status_code=404, detail=f"Scaffale {request.shelf_id} non trovato")
 
-    # 2. Controllo se ci sono prodotti nello scaffale
-    ean_list = shelf.products if isinstance(shelf.products, list) else []
-    print(f"DEBUG: Lo scaffale {request.shelf_id} contiene {len(ean_list)} EAN")
-    
+    # Gestione robusta del campo JSONB products
+    products_data = shelf.products
+    if isinstance(products_data, dict):
+        products_data = products_data.get("products", [])
+    if not isinstance(products_data, list):
+        products_data = []
+
+    print(f"DEBUG: Scaffale {request.shelf_id} - {len(products_data)} prodotti trovati")
+
     safe = []
     warning = []
     unknown = []
 
-    for item in ean_list:
-        ean = item.get("ean")
-        if not ean: continue
-        
-        # 3. Cerco il prodotto nel catalogo
+    for item in products_data:
+        ean = item.get("ean") if isinstance(item, dict) else str(item)
+        if not ean:
+            continue
+
         product = db.query(Product).filter(Product.ean == ean).first()
-        
-        # 4. Cerco gli ingredienti/allergeni nel database
         ingredients = db.query(ProductIngredient).filter(ProductIngredient.product_ean == ean).all()
-        print(f"DEBUG: EAN {ean} - Ingredienti trovati nel DB: {len(ingredients)}")
-        
-        # Costruzione del parser_result per il decision_engine
+
         parser_result = {
             "contains_matches": [
                 {"token": i.token_original, "category": i.category, "severity": i.severity} 
-                for i in ingredients if not i.is_warning
+                for i in ingredients if not getattr(i, 'is_warning', False)
             ],
             "warning_matches": [
                 {"token": i.token_original, "category": i.category, "severity": i.severity} 
-                for i in ingredients if i.is_warning
+                for i in ingredients if getattr(i, 'is_warning', False)
             ],
             "unknown_tokens": [],
-            "ingredients_missing": (len(ingredients) == 0)
+            "ingredients_missing": len(ingredients) == 0
         }
 
-        # 5. Eseguo la logica di filtraggio con i filtri dell'utente
         decision = decide_status(parser_result, request.filters, request.strict_mode)
-        print(f"DEBUG: EAN {ean} - Status deciso: {decision.status} (Filtri attivi: {request.filters})")
 
         res_item = ProductResult(
             ean=ean,
-            name=product.name if product else "Sconosciuto",
+            name=product.name if product else "Prodotto sconosciuto",
             brand=product.brand if product else "",
-            position=item.get("position"),
-            shelf_row=item.get("shelf_row"),
+            position=item.get("position") if isinstance(item, dict) else None,
+            shelf_row=item.get("shelf_row") if isinstance(item, dict) else None,
             status=decision.status,
             reasons=decision.reasons
         )
 
-        # 6. Distribuzione nelle liste di risposta
         if decision.status == "SAFE":
             safe.append(res_item)
         elif decision.status == "WARNING":
@@ -73,14 +69,12 @@ async def check_shelf(request: ShelfCheckRequest, db: Session = Depends(get_db))
         else:
             unknown.append(res_item)
 
-    print(f"DEBUG FINALE: Safe: {len(safe)}, Warning: {len(warning)}, Unknown/Unsafe: {len(unknown)}")
-
     return ShelfCheckResponse(
         shelf_id=request.shelf_id,
         safe_products=safe,
         warning_products=warning,
         unknown_products=unknown,
-        total_products=len(ean_list),
+        total_products=len(products_data),
         checked_at=datetime.utcnow().isoformat(),
-        message=f"Analizzati {len(ean_list)} prodotti"
+        message=f"Analizzati {len(products_data)} prodotti"
     )
