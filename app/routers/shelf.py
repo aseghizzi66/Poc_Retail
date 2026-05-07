@@ -9,21 +9,16 @@ from app.decision_engine import decide_status
 router = APIRouter(prefix="/shelf", tags=["Totem"])
 
 @router.post("/check", response_model=ShelfCheckResponse)
-@router.post("/check/", response_model=ShelfCheckResponse)
 async def check_shelf(request: ShelfCheckRequest, db: Session = Depends(get_db)):
     shelf = db.query(ShelfMap).filter(ShelfMap.shelf_id == request.shelf_id).first()
     
     if not shelf:
         raise HTTPException(status_code=404, detail=f"Scaffale {request.shelf_id} non trovato")
 
-    # Gestione robusta del campo JSONB products
-    products_data = shelf.products
+    # Recupero robusto dei prodotti dallo scaffale
+    products_data = shelf.products or []
     if isinstance(products_data, dict):
         products_data = products_data.get("products", [])
-    if not isinstance(products_data, list):
-        products_data = []
-
-    print(f"DEBUG: Scaffale {request.shelf_id} - {len(products_data)} prodotti trovati")
 
     safe = []
     warning = []
@@ -39,18 +34,19 @@ async def check_shelf(request: ShelfCheckRequest, db: Session = Depends(get_db))
 
         parser_result = {
             "contains_matches": [
-                {"token": i.token_original, "category": i.category, "severity": i.severity} 
+                {"token": i.token_original or "", "category": i.category or "", "severity": i.severity or "certain"} 
                 for i in ingredients if not getattr(i, 'is_warning', False)
             ],
             "warning_matches": [
-                {"token": i.token_original, "category": i.category, "severity": i.severity} 
+                {"token": i.token_original or "", "category": i.category or "", "severity": i.severity or "certain"} 
                 for i in ingredients if getattr(i, 'is_warning', False)
             ],
             "unknown_tokens": [],
             "ingredients_missing": len(ingredients) == 0
         }
 
-        decision = decide_status(parser_result, request.filters, request.strict_mode)
+        # Decisione
+        decision = decide_status(parser_result, request.filters or [], request.strict_mode or False)
 
         res_item = ProductResult(
             ean=ean,
