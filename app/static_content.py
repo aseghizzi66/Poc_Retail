@@ -48,7 +48,7 @@ TOTEM_HTML = """<!DOCTYPE html>
       const resultsDiv = document.getElementById('results');
       resultsDiv.innerHTML = 'Caricamento...';
       try {
-        const res = await fetch('/shelf/check', {
+        const res = await fetch('/shelf/check/', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({shelf_id: shelfId, filters: selected, strict_mode: false})
