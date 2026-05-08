@@ -11,19 +11,12 @@ router = APIRouter(prefix="/shelf", tags=["Totem"])
 @router.post("/check", response_model=ShelfCheckResponse)
 async def check_shelf(request: ShelfCheckRequest, db: Session = Depends(get_db)):
     shelf = db.query(ShelfMap).filter(ShelfMap.shelf_id == request.shelf_id).first()
-    
     if not shelf:
-        raise HTTPException(status_code=404, detail=f"Scaffale {request.shelf_id} non trovato")
+        raise HTTPException(status_code=404, detail="Scaffale non trovato")
 
-    # Recupero corretto del JSONB
-    products_data = shelf.products
+    products_data = shelf.products or []
     if isinstance(products_data, dict):
-        products_data = products_data.get("products", products_data)  # fallback
-    
-    if not isinstance(products_data, list):
-        products_data = []
-
-    print(f"DEBUG: Trovati {len(products_data)} prodotti nello scaffale {request.shelf_id}")
+        products_data = products_data.get("products", [])
 
     safe = []
     warning = []
@@ -31,25 +24,14 @@ async def check_shelf(request: ShelfCheckRequest, db: Session = Depends(get_db))
 
     for item in products_data:
         ean = item.get("ean") if isinstance(item, dict) else str(item)
-        if not ean:
-            continue
+        if not ean: continue
 
         product = db.query(Product).filter(Product.ean == ean).first()
         ingredients = db.query(ProductIngredient).filter(ProductIngredient.product_ean == ean).all()
 
         parser_result = {
-            "contains_matches": [
-                {"token": getattr(i, 'token_original', ''), 
-                 "category": getattr(i, 'category', ''), 
-                 "severity": getattr(i, 'severity', 'certain')} 
-                for i in ingredients if not getattr(i, 'is_warning', False)
-            ],
-            "warning_matches": [
-                {"token": getattr(i, 'token_original', ''), 
-                 "category": getattr(i, 'category', ''), 
-                 "severity": getattr(i, 'severity', 'certain')} 
-                for i in ingredients if getattr(i, 'is_warning', False)
-            ],
+            "contains_matches": [{"token": i.token_original or "", "category": i.category or ""} for i in ingredients if not getattr(i, 'is_warning', False)],
+            "warning_matches": [{"token": i.token_original or "", "category": i.category or ""} for i in ingredients if getattr(i, 'is_warning', False)],
             "unknown_tokens": [],
             "ingredients_missing": len(ingredients) == 0
         }
@@ -58,12 +40,12 @@ async def check_shelf(request: ShelfCheckRequest, db: Session = Depends(get_db))
 
         res_item = ProductResult(
             ean=ean,
-            name=product.name if product else "Prodotto sconosciuto",
+            name=product.name if product else "Sconosciuto",
             brand=product.brand if product else "",
             position=item.get("position") if isinstance(item, dict) else None,
             shelf_row=item.get("shelf_row") if isinstance(item, dict) else None,
             status=decision.status,
-            reasons=decision.reasons or []
+            reasons=decision.reasons
         )
 
         if decision.status == "SAFE":
