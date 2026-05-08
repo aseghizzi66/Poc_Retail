@@ -46,6 +46,7 @@ class ProductResult(BaseModel):
     status: str
     reasons: List[str]
     image_url: Optional[str] = None
+    ingredients_raw: Optional[str] = None
 
 class ShelfCheckResponse(BaseModel):
     shelf_id: str

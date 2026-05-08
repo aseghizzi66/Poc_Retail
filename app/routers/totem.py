@@ -28,8 +28,12 @@ async def get_totem(db: Session = Depends(get_db)):
     button {{ width:100%; padding:16px; margin:10px 0; font-size:17px; border:none; border-radius:10px; cursor:pointer; }}
     .search-btn {{ background:#27ae60; color:white; }}
     .showall-btn {{ background:#2980b9; color:white; }}
-    .product {{ display:flex; gap:15px; padding:12px 0; border-bottom:1px solid #eee; align-items:center; }}
-    .product img {{ width:70px; height:70px; border-radius:10px; }}
+    .product {{ display:flex; flex-direction:column; padding:12px 0; border-bottom:1px solid #eee; }}
+    .product-main {{ display:flex; gap:15px; align-items:center; }}
+    .product img {{ width:70px; height:70px; border-radius:10px; object-fit:cover; }}
+    .toggle-ing {{ background:none; border:none; color:#3498db; font-size:13px; cursor:pointer; padding:4px 0; margin:0; width:auto; text-align:left; }}
+    .ingredients {{ display:none; font-size:13px; color:#555; margin-top:6px; padding:8px; background:#f8f9fa; border-radius:6px; line-height:1.5; }}
+    .ingredients.visible {{ display:block; }}
   </style>
 </head>
 <body>
@@ -114,17 +118,30 @@ async def get_totem(db: Session = Depends(get_db)):
       let html = `<h3>Risultati per ${{data.shelf_id || 'Scaffale'}} (${{data.safe_products ? data.safe_products.length : 0}} sicuri)</h3>`;
 
       if (data.safe_products && data.safe_products.length > 0) {{
-        data.safe_products.forEach(p => {{
+        data.safe_products.forEach((p, idx) => {{
           const imgSrc = p.image_url || `https://picsum.photos/id/${{Math.floor(Math.random()*300)+1}}/70/70`;
+          const ingId = `ing-${{idx}}`;
+          const ingHtml = p.ingredients_raw
+            ? `<button class="toggle-ing" onclick="toggleIng('${{ingId}}')">📋 Ingredienti</button>
+               <div class="ingredients" id="${{ingId}}">${{p.ingredients_raw}}</div>`
+            : '';
           html += `<div class="product">
-            <img src="${{imgSrc}}" onerror="this.src='https://picsum.photos/id/1/70/70'">
-            <div><strong>${{p.brand}}</strong><br>${{p.name}}</div>
+            <div class="product-main">
+              <img src="${{imgSrc}}" onerror="this.src='https://picsum.photos/id/1/70/70'">
+              <div><strong>${{p.brand}}</strong><br>${{p.name}}</div>
+            </div>
+            ${{ingHtml}}
           </div>`;
         }});
       }} else {{
         html += `<p>Nessun prodotto compatibile trovato.</p>`;
       }}
       div.innerHTML = html;
+    }}
+
+    function toggleIng(id) {{
+      const el = document.getElementById(id);
+      el.classList.toggle('visible');
     }}
 
     function resetFilters() {{
