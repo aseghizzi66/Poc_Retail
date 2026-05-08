@@ -55,7 +55,6 @@ async def get_totem(db: Session = Depends(get_db)):
 
   <script>
     let selected = [];
-
     const filtersList = ["latte","glutine","soia","uova","arachidi","olio_palma"];
 
     function renderFilters() {{
@@ -66,11 +65,8 @@ async def get_totem(db: Session = Depends(get_db)):
         btn.className = `filter-btn ${{selected.includes(f) ? 'active' : ''}}`;
         btn.textContent = f.charAt(0).toUpperCase() + f.slice(1);
         btn.onclick = () => {{
-          if (selected.includes(f)) {{
-            selected = selected.filter(x => x !== f);
-          }} else {{
-            selected.push(f);
-          }}
+          if (selected.includes(f)) selected = selected.filter(x => x !== f);
+          else selected.push(f);
           renderFilters();
         }};
         container.appendChild(btn);
@@ -82,20 +78,13 @@ async def get_totem(db: Session = Depends(get_db)):
       const resultsDiv = document.getElementById('results');
       resultsDiv.innerHTML = '<p>Caricamento...</p>';
 
-      console.log("Invio filtri:", selected);   // Debug
-
       try {{
         const res = await fetch('/shelf/check', {{
           method: 'POST',
           headers: {{ 'Content-Type': 'application/json' }},
-          body: JSON.stringify({{
-            shelf_id: shelfId,
-            filters: selected,
-            strict_mode: false
-          }})
+          body: JSON.stringify({{ shelf_id: shelfId, filters: selected, strict_mode: false }})
         }});
         const data = await res.json();
-        console.log("Risposta ricevuta:", data);
         renderResults(data);
       }} catch(e) {{
         resultsDiv.innerHTML = '<p style="color:red;">Errore di connessione</p>';
@@ -122,17 +111,17 @@ async def get_totem(db: Session = Depends(get_db)):
 
     function renderResults(data) {{
       const div = document.getElementById('results');
-      let html = `<h3>Risultati per ${data.shelf_id} (${data.safe_products.length} sicuri)</h3>`;
+      let html = `<h3>Risultati per ${{data.shelf_id || 'Scaffale'}} (${{data.safe_products ? data.safe_products.length : 0}} sicuri)</h3>`;
 
       if (data.safe_products && data.safe_products.length > 0) {{
         data.safe_products.forEach(p => {{
           html += `<div class="product">
-            <img src="https://picsum.photos/id/${Math.floor(Math.random()*300)+1}/70/70">
-            <div><strong>${p.brand}</strong><br>${p.name}</div>
+            <img src="https://picsum.photos/id/${{Math.floor(Math.random()*300)+1}}/70/70">
+            <div><strong>${{p.brand}}</strong><br>${{p.name}}</div>
           </div>`;
         }});
       }} else {{
-        html += `<p>Nessun prodotto compatibile con i filtri selezionati.</p>`;
+        html += `<p>Nessun prodotto compatibile trovato.</p>`;
       }}
       div.innerHTML = html;
     }}
