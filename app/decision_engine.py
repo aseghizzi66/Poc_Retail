@@ -8,70 +8,39 @@ def decide_status(
 ) -> DecisionResponse:
     
     if not user_blacklist:
-        return DecisionResponse(
-            status="SAFE",
-            reasons=[],
-            details=[],
-            message="Nessun filtro applicato"
-        )
+        return DecisionResponse(status="SAFE", reasons=[], details=[], message="Nessun filtro")
 
-    # Normalizza blacklist
     blacklist = [b.lower().strip() for b in user_blacklist]
 
     contains = parser_result.get("contains_matches", [])
     warnings = parser_result.get("warning_matches", [])
 
     matched = []
-    details = []
 
-    def is_match(item):
-        if not item:
-            return False
-        cat = str(item.get("category", "")).lower()
-        tok = str(item.get("token", "")).lower()
-        
+    for item in contains + warnings:
+        category = str(item.get("category", "")).lower()
+        token = str(item.get("token", "")).lower()
+
         for forbidden in blacklist:
-            if (forbidden in cat or 
-                forbidden in tok or 
-                cat in forbidden or 
-                tok in forbidden or
-                forbidden.replace(" ", "") in cat.replace(" ", "") or
-                forbidden.replace(" ", "") in tok.replace(" ", "")):
-                return True
-        return False
-
-    # Controllo ingredienti principali
-    for item in contains:
-        if is_match(item):
-            matched.append(item.get("category") or item.get("token"))
-            details.append({"token": item.get("token"), "category": item.get("category"), "type": "contains"})
+            if (forbidden in category or 
+                forbidden in token or 
+                category in forbidden or 
+                token in forbidden):
+                matched.append(forbidden)
+                break
 
     if matched:
-        return DecisionResponse(
-            status="UNSAFE",
-            reasons=list(set(matched)),
-            details=details,
-            message=f"Contiene {', '.join(set(matched))}"
-        )
-
-    # Controllo tracce
-    for item in warnings:
-        if is_match(item):
-            matched.append(item.get("category") or item.get("token"))
-            details.append({"token": item.get("token"), "category": item.get("category"), "type": "warning"})
-
-    if matched:
-        status = "UNSAFE" if strict_mode else "WARNING"
+        status = "UNSAFE" if any(m in ["latte", "glutine"] for m in matched) else "WARNING"
         return DecisionResponse(
             status=status,
             reasons=list(set(matched)),
-            details=details,
-            message=f"Può contenere tracce di {', '.join(set(matched))}"
+            details=[],
+            message=f"Trovato: {', '.join(set(matched))}"
         )
 
     return DecisionResponse(
         status="SAFE",
         reasons=[],
         details=[],
-        message="Nessun ingrediente vietato trovato"
+        message="Nessun match trovato"
     )
