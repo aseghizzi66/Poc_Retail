@@ -115,8 +115,9 @@ async def get_totem(db: Session = Depends(get_db)):
 
       if (data.safe_products && data.safe_products.length > 0) {{
         data.safe_products.forEach(p => {{
+          const imgSrc = p.image_url || `https://picsum.photos/id/${{Math.floor(Math.random()*300)+1}}/70/70`;
           html += `<div class="product">
-            <img src="https://picsum.photos/id/${{Math.floor(Math.random()*300)+1}}/70/70">
+            <img src="${{imgSrc}}" onerror="this.src='https://picsum.photos/id/1/70/70'">
             <div><strong>${{p.brand}}</strong><br>${{p.name}}</div>
           </div>`;
         }});

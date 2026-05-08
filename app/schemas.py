@@ -45,6 +45,7 @@ class ProductResult(BaseModel):
     shelf_row: Optional[int] = None
     status: str
     reasons: List[str]
+    image_url: Optional[str] = None
 
 class ShelfCheckResponse(BaseModel):
     shelf_id: str

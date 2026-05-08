@@ -45,7 +45,8 @@ async def check_shelf(request: ShelfCheckRequest, db: Session = Depends(get_db))
             position=item.get("position") if isinstance(item, dict) else None,
             shelf_row=item.get("shelf_row") if isinstance(item, dict) else None,
             status=decision.status,
-            reasons=decision.reasons
+            reasons=decision.reasons,
+            image_url=product.image_url if product else None
         )
 
         if decision.status == "SAFE":
