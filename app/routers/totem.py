@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, Depends
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
@@ -17,131 +18,320 @@ async def get_totem(db: Session = Depends(get_db)):
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Totem Intelligente</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body {{ font-family: Arial, sans-serif; margin:0; background:#f0f2f5; }}
-    .container {{ max-width:1100px; margin:40px auto; background:white; border-radius:16px; box-shadow:0 10px 40px rgba(0,0,0,0.1); }}
-    .header {{ background:#2c3e50; color:white; padding:30px; text-align:center; }}
-    .main {{ padding:40px; }}
-    .filter-grid {{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:10px; }}
-    .filter-btn {{ padding:15px; border:2px solid #ddd; background:white; border-radius:10px; text-align:center; cursor:pointer; }}
-    .filter-btn.active {{ background:#3498db; color:white; }}
-    button {{ width:100%; padding:16px; margin:10px 0; font-size:17px; border:none; border-radius:10px; cursor:pointer; }}
-    .search-btn {{ background:#27ae60; color:white; }}
-    .showall-btn {{ background:#2980b9; color:white; }}
-    .product {{ display:flex; flex-direction:column; padding:12px 0; border-bottom:1px solid #eee; }}
-    .product-main {{ display:flex; gap:15px; align-items:center; }}
-    .product img {{ width:70px; height:70px; border-radius:10px; object-fit:cover; }}
-    .toggle-ing {{ background:none; border:none; color:#3498db; font-size:13px; cursor:pointer; padding:4px 0; margin:0; width:auto; text-align:left; }}
-    .ingredients {{ display:none; font-size:13px; color:#555; margin-top:6px; padding:8px; background:#f8f9fa; border-radius:6px; line-height:1.5; }}
-    .ingredients.visible {{ display:block; }}
+    *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{ font-family: 'Inter', sans-serif; background: #f0f4f8; min-height: 100vh; }}
+
+    /* HEADER */
+    .header {{
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+      color: white; padding: 32px 24px; text-align: center;
+    }}
+    .header h1 {{ font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }}
+    .header p {{ margin-top: 6px; opacity: 0.75; font-size: 15px; }}
+
+    /* LAYOUT */
+    .container {{ max-width: 960px; margin: 0 auto; padding: 28px 20px 60px; }}
+
+    /* SECTION LABELS */
+    .section-label {{
+      font-size: 11px; font-weight: 600; letter-spacing: 1px;
+      text-transform: uppercase; color: #94a3b8; margin-bottom: 12px;
+    }}
+
+    /* SHELF SELECTOR */
+    .shelf-tabs {{ display: flex; gap: 10px; margin-bottom: 28px; flex-wrap: wrap; }}
+    .shelf-tab {{
+      padding: 10px 20px; border: 2px solid #e2e8f0; border-radius: 50px;
+      background: white; cursor: pointer; font-size: 14px; font-weight: 500;
+      color: #475569; transition: all .2s;
+    }}
+    .shelf-tab.active {{
+      background: #1a1a2e; border-color: #1a1a2e; color: white;
+    }}
+
+    /* FILTER CHIPS */
+    .filters-wrap {{ background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }}
+    .filter-grid {{ display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }}
+    .filter-chip {{
+      display: flex; align-items: center; gap: 6px;
+      padding: 9px 16px; border: 2px solid #e2e8f0; border-radius: 50px;
+      background: white; cursor: pointer; font-size: 14px; font-weight: 500;
+      color: #475569; transition: all .18s; user-select: none;
+    }}
+    .filter-chip:hover {{ border-color: #94a3b8; }}
+    .filter-chip.active {{
+      background: #fee2e2; border-color: #fca5a5; color: #dc2626; font-weight: 600;
+    }}
+    .filter-chip .chip-icon {{ font-size: 16px; }}
+    .active-badge {{
+      display: inline-flex; align-items: center; justify-content: center;
+      background: #dc2626; color: white; border-radius: 50px;
+      font-size: 11px; font-weight: 700; min-width: 20px; height: 20px;
+      padding: 0 5px; margin-left: 8px;
+    }}
+
+    /* ACTION BUTTONS */
+    .actions {{ display: flex; gap: 10px; margin-bottom: 28px; flex-wrap: wrap; }}
+    .btn {{
+      flex: 1; min-width: 140px; padding: 14px 20px; border: none; border-radius: 12px;
+      font-size: 15px; font-weight: 600; cursor: pointer; transition: all .18s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }}
+    .btn-primary {{ background: #16a34a; color: white; }}
+    .btn-primary:hover {{ background: #15803d; }}
+    .btn-secondary {{ background: #2563eb; color: white; }}
+    .btn-secondary:hover {{ background: #1d4ed8; }}
+    .btn-ghost {{ background: white; color: #64748b; border: 2px solid #e2e8f0; }}
+    .btn-ghost:hover {{ border-color: #94a3b8; }}
+
+    /* SPINNER */
+    .spinner {{
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; padding: 60px; gap: 16px; color: #94a3b8;
+    }}
+    .spin {{
+      width: 40px; height: 40px; border: 4px solid #e2e8f0;
+      border-top-color: #2563eb; border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }}
+    @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+
+    /* RESULTS HEADER */
+    .results-header {{
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px; flex-wrap: wrap; gap: 8px;
+    }}
+    .results-title {{ font-size: 17px; font-weight: 700; color: #1e293b; }}
+    .results-count {{
+      background: #dcfce7; color: #16a34a; font-weight: 700;
+      font-size: 13px; padding: 4px 12px; border-radius: 50px;
+    }}
+
+    /* PRODUCT GRID */
+    .product-grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }}
+    .product-card {{
+      background: white; border-radius: 14px; overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,.07);
+      transition: box-shadow .2s, transform .2s;
+    }}
+    .product-card:hover {{ box-shadow: 0 6px 20px rgba(0,0,0,.12); transform: translateY(-2px); }}
+    .card-body {{ display: flex; gap: 14px; padding: 16px; align-items: flex-start; }}
+    .card-img {{
+      width: 80px; height: 80px; border-radius: 10px;
+      object-fit: cover; flex-shrink: 0; background: #f1f5f9;
+    }}
+    .card-info {{ flex: 1; min-width: 0; }}
+    .card-brand {{ font-size: 12px; color: #94a3b8; font-weight: 500; margin-bottom: 3px; }}
+    .card-name {{ font-size: 15px; font-weight: 600; color: #1e293b; line-height: 1.3; }}
+    .card-footer {{
+      border-top: 1px solid #f1f5f9; padding: 10px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+    }}
+    .toggle-btn {{
+      background: none; border: none; color: #2563eb; font-size: 13px;
+      font-weight: 500; cursor: pointer; padding: 0; display: flex;
+      align-items: center; gap: 4px;
+    }}
+    .toggle-btn svg {{ transition: transform .2s; }}
+    .toggle-btn.open svg {{ transform: rotate(180deg); }}
+    .ing-panel {{
+      max-height: 0; overflow: hidden; transition: max-height .3s ease;
+    }}
+    .ing-panel.open {{ max-height: 300px; }}
+    .ing-text {{
+      font-size: 12.5px; color: #64748b; line-height: 1.6;
+      padding: 0 16px 14px; border-top: 1px solid #f1f5f9; padding-top: 10px;
+    }}
+
+    /* EMPTY STATE */
+    .empty-state {{
+      text-align: center; padding: 60px 20px; color: #94a3b8;
+    }}
+    .empty-state .icon {{ font-size: 48px; margin-bottom: 12px; }}
+    .empty-state p {{ font-size: 16px; }}
+
+    /* ERROR */
+    .error-msg {{
+      background: #fee2e2; color: #dc2626; border-radius: 12px;
+      padding: 16px; text-align: center; font-weight: 500;
+    }}
   </style>
 </head>
 <body>
+
+  <div class="header">
+    <h1>🛒 Totem Intelligente</h1>
+    <p>Seleziona le restrizioni alimentari e scopri i prodotti compatibili</p>
+  </div>
+
   <div class="container">
-    <div class="header">
-      <h1>🛒 Totem Intelligente</h1>
-    </div>
-    <div class="main">
-      <h3>Cosa vuoi evitare?</h3>
+
+    <!-- SHELF SELECTOR -->
+    <div class="section-label">Seleziona il ripiano</div>
+    <div class="shelf-tabs" id="shelfTabs"></div>
+
+    <!-- FILTERS -->
+    <div class="filters-wrap">
+      <div class="section-label" style="margin-bottom:0;">
+        Cosa vuoi evitare?
+        <span class="active-badge" id="activeBadge" style="display:none"></span>
+      </div>
       <div class="filter-grid" id="filters"></div>
-
-      <select id="shelfSelect" style="width:100%;padding:15px;margin:20px 0;font-size:16px;">
-        {shelf_options}
-      </select>
-
-      <button class="search-btn" onclick="checkShelf()">🔍 Cerca con filtri</button>
-      <button class="showall-btn" onclick="showAllProducts()">📋 Mostra tutti i prodotti</button>
-      <button onclick="resetFilters()">🔄 Reset filtri</button>
-
-      <div id="results" style="margin-top:30px;"></div>
     </div>
+
+    <!-- ACTIONS -->
+    <div class="actions">
+      <button class="btn btn-primary" onclick="checkShelf()">
+        <span>🔍</span> Cerca con filtri
+      </button>
+      <button class="btn btn-secondary" onclick="showAllProducts()">
+        <span>📋</span> Mostra tutti
+      </button>
+      <button class="btn btn-ghost" onclick="resetFilters()">
+        <span>🔄</span> Reset
+      </button>
+    </div>
+
+    <!-- RESULTS -->
+    <div id="results"></div>
+
   </div>
 
   <script>
     let selected = [];
-    const filtersList = ["latte","glutine","soia","uova","arachidi","olio_palma","zucchero"];
+    let currentShelf = '';
+
+    const filtersList = [
+      {{ key: "latte",     icon: "🥛", label: "Latte" }},
+      {{ key: "glutine",   icon: "🌾", label: "Glutine" }},
+      {{ key: "soia",      icon: "🫘", label: "Soia" }},
+      {{ key: "uova",      icon: "🥚", label: "Uova" }},
+      {{ key: "arachidi",  icon: "🥜", label: "Arachidi" }},
+      {{ key: "olio_palma",icon: "🌴", label: "Olio di palma" }},
+      {{ key: "zucchero",  icon: "🍬", label: "Zucchero" }},
+    ];
+
+    const shelves = {json.dumps([{"id": s.shelf_id, "name": s.name} for s in shelves])};
+
+    function initShelfTabs() {{
+      const container = document.getElementById('shelfTabs');
+      shelves.forEach((s, i) => {{
+        const tab = document.createElement('div');
+        tab.className = 'shelf-tab' + (i === 0 ? ' active' : '');
+        tab.textContent = s.name;
+        tab.dataset.id = s.id;
+        tab.onclick = () => {{
+          document.querySelectorAll('.shelf-tab').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          currentShelf = s.id;
+        }};
+        container.appendChild(tab);
+        if (i === 0) currentShelf = s.id;
+      }});
+    }}
 
     function renderFilters() {{
       const container = document.getElementById('filters');
       container.innerHTML = '';
       filtersList.forEach(f => {{
-        const btn = document.createElement('div');
-        btn.className = `filter-btn ${{selected.includes(f) ? 'active' : ''}}`;
-        btn.textContent = f.charAt(0).toUpperCase() + f.slice(1);
-        btn.onclick = () => {{
-          if (selected.includes(f)) selected = selected.filter(x => x !== f);
-          else selected.push(f);
+        const chip = document.createElement('div');
+        chip.className = 'filter-chip' + (selected.includes(f.key) ? ' active' : '');
+        chip.innerHTML = `<span class="chip-icon">${{f.icon}}</span>${{f.label}}`;
+        chip.onclick = () => {{
+          if (selected.includes(f.key)) selected = selected.filter(x => x !== f.key);
+          else selected.push(f.key);
           renderFilters();
         }};
-        container.appendChild(btn);
+        container.appendChild(chip);
       }});
+      const badge = document.getElementById('activeBadge');
+      if (selected.length > 0) {{
+        badge.style.display = 'inline-flex';
+        badge.textContent = selected.length;
+      }} else {{
+        badge.style.display = 'none';
+      }}
     }}
 
-    async function checkShelf() {{
-      const shelfId = document.getElementById('shelfSelect').value;
+    async function fetchShelf(filters) {{
       const resultsDiv = document.getElementById('results');
-      resultsDiv.innerHTML = '<p>Caricamento...</p>';
-
+      resultsDiv.innerHTML = `<div class="spinner"><div class="spin"></div><span>Analisi in corso...</span></div>`;
       try {{
         const res = await fetch('/shelf/check', {{
           method: 'POST',
           headers: {{ 'Content-Type': 'application/json' }},
-          body: JSON.stringify({{ shelf_id: shelfId, filters: selected, strict_mode: false }})
+          body: JSON.stringify({{ shelf_id: currentShelf, filters, strict_mode: false }})
         }});
         const data = await res.json();
-        renderResults(data);
+        renderResults(data, filters.length > 0);
       }} catch(e) {{
-        resultsDiv.innerHTML = '<p style="color:red;">Errore di connessione</p>';
+        resultsDiv.innerHTML = `<div class="error-msg">⚠️ Errore di connessione. Riprova.</div>`;
       }}
     }}
 
-    async function showAllProducts() {{
-      const shelfId = document.getElementById('shelfSelect').value;
-      const resultsDiv = document.getElementById('results');
-      resultsDiv.innerHTML = '<p>Caricamento...</p>';
+    function checkShelf()    {{ fetchShelf(selected); }}
+    function showAllProducts() {{ fetchShelf([]); }}
 
-      try {{
-        const res = await fetch('/shelf/check', {{
-          method: 'POST',
-          headers: {{ 'Content-Type': 'application/json' }},
-          body: JSON.stringify({{ shelf_id: shelfId, filters: [], strict_mode: false }})
-        }});
-        const data = await res.json();
-        renderResults(data);
-      }} catch(e) {{
-        resultsDiv.innerHTML = '<p style="color:red;">Errore di connessione</p>';
-      }}
-    }}
-
-    function renderResults(data) {{
+    function renderResults(data, filtered) {{
       const div = document.getElementById('results');
-      let html = `<h3>Risultati per ${{data.shelf_id || 'Scaffale'}} (${{data.safe_products ? data.safe_products.length : 0}} sicuri)</h3>`;
+      const products = data.safe_products || [];
+      const shelfName = shelves.find(s => s.id === data.shelf_id)?.name || data.shelf_id;
 
-      if (data.safe_products && data.safe_products.length > 0) {{
-        data.safe_products.forEach((p, idx) => {{
-          const imgSrc = p.image_url || `https://picsum.photos/id/${{Math.floor(Math.random()*300)+1}}/70/70`;
+      let html = `<div class="results-header">
+        <div class="results-title">${{shelfName}}</div>
+        <div class="results-count">${{products.length}} ${{filtered ? 'compatibili' : 'prodotti'}}</div>
+      </div>`;
+
+      if (products.length === 0) {{
+        html += `<div class="empty-state">
+          <div class="icon">🔍</div>
+          <p>Nessun prodotto compatibile con i filtri selezionati.</p>
+        </div>`;
+      }} else {{
+        html += `<div class="product-grid">`;
+        products.forEach((p, idx) => {{
+          const imgSrc = p.image_url || `https://picsum.photos/id/${{(idx % 50) + 1}}/80/80`;
           const ingId = `ing-${{idx}}`;
-          const ingHtml = p.ingredients_raw
-            ? `<button class="toggle-ing" onclick="toggleIng('${{ingId}}')">📋 Ingredienti</button>
-               <div class="ingredients" id="${{ingId}}">${{p.ingredients_raw}}</div>`
-            : '';
-          html += `<div class="product">
-            <div class="product-main">
-              <img src="${{imgSrc}}" onerror="this.src='https://picsum.photos/id/1/70/70'">
-              <div><strong>${{p.brand}}</strong><br>${{p.name}}</div>
+          const hasIng = !!p.ingredients_raw;
+          html += `
+          <div class="product-card">
+            <div class="card-body">
+              <img class="card-img" src="${{imgSrc}}" onerror="this.src='https://images.openfoodfacts.org/images/icons/dist/packaging.svg'" alt="${{p.name}}">
+              <div class="card-info">
+                <div class="card-brand">${{p.brand || ''}}</div>
+                <div class="card-name">${{p.name}}</div>
+              </div>
             </div>
-            ${{ingHtml}}
+            ${{hasIng ? `
+            <div class="card-footer">
+              <button class="toggle-btn" id="btn-${{ingId}}" onclick="toggleIng('${{ingId}}')">
+                📋 Ingredienti
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
+            </div>
+            <div class="ing-panel" id="${{ingId}}">
+              <div class="ing-text">${{p.ingredients_raw}}</div>
+            </div>` : ''}}
           </div>`;
         }});
-      }} else {{
-        html += `<p>Nessun prodotto compatibile trovato.</p>`;
+        html += `</div>`;
       }}
       div.innerHTML = html;
     }}
 
     function toggleIng(id) {{
-      const el = document.getElementById(id);
-      el.classList.toggle('visible');
+      const panel = document.getElementById(id);
+      const btn = document.getElementById('btn-' + id);
+      panel.classList.toggle('open');
+      btn.classList.toggle('open');
     }}
 
     function resetFilters() {{
@@ -150,6 +340,7 @@ async def get_totem(db: Session = Depends(get_db)):
       document.getElementById('results').innerHTML = '';
     }}
 
+    initShelfTabs();
     renderFilters();
   </script>
 </body>
