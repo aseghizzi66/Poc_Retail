@@ -59,7 +59,7 @@ async def get_totem(db: Session = Depends(get_db)):
 
   <script>
     let selected = [];
-    const filtersList = ["latte","glutine","soia","uova","arachidi","olio_palma"];
+    const filtersList = ["latte","glutine","soia","uova","arachidi","olio_palma","zucchero"];
 
     function renderFilters() {{
       const container = document.getElementById('filters');
